@@ -1,20 +1,24 @@
 package config
 
 import (
-	"path/filepath"
 	"encoding/json"
-	"io"
 	"os"
+	"path/filepath"
 )
 
 const configFileName = ".gatorconfig.json"
 
 type Config struct {
-	DbUrl    		string `json:"db_url"`
-	CurrentUserName	string `json:"current_user_name"`
+	DBURL           string `json:"db_url"`
+	CurrentUserName string `json:"current_user_name"`
 }
 
-func Read() (Config, error){
+func (cfg *Config) SetUser(userName string) error {
+	cfg.CurrentUserName = userName
+	return write(*cfg)
+}
+
+func Read() (Config, error) {
 	fullPath, err := getConfigFilePath()
 	if err != nil {
 		return Config{}, err
@@ -26,36 +30,14 @@ func Read() (Config, error){
 	}
 	defer file.Close()
 
-	data, err := io.ReadAll(file)
+	decoder := json.NewDecoder(file)
+	cfg := Config{}
+	err = decoder.Decode(&cfg)
 	if err != nil {
 		return Config{}, err
 	}
 
-	var config Config
-	if err = json.Unmarshal(data, &config); err != nil {
-		return Config{}, err
-	}
-
-	return config, nil
-}
-
-func (c *Config) SetUser(name string) error {
-	fullPath, err := getConfigFilePath()
-	if err != nil {
-		return err
-	}
-
-    c.CurrentUserName = name
-	data, err := json.Marshal(c)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(fullPath, data, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
+	return cfg, nil
 }
 
 func getConfigFilePath() (string, error) {
@@ -65,4 +47,25 @@ func getConfigFilePath() (string, error) {
 	}
 	fullPath := filepath.Join(home, configFileName)
 	return fullPath, nil
+}
+
+func write(cfg Config) error {
+	fullPath, err := getConfigFilePath()
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create(fullPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	err = encoder.Encode(cfg)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

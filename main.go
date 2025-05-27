@@ -2,25 +2,39 @@ package main
 
 import (
 	"blog_aggregator/internal/config"
-	"fmt"
 	"log"
+	"os"
 )
 
+type state struct {
+	cfg *config.Config
+}
+
 func main() {
-	data, err := config.Read()
+	cfg, err := config.Read()
 	if err != nil {
 		log.Fatalf("error reading config: %v", err)
 	}
-	fmt.Printf("Read config: %+v\n", data)
 
-	err = data.SetUser("javier")
-	if err != nil {
-		log.Fatalf("couldn't set current user: %v", err)
+	programState := &state{
+		cfg: &cfg,
 	}
 
-	data, err = config.Read()
-	if err != nil {
-		log.Fatalf("error reading config: %v", err)
+	cmds := commands{
+		registeredCommands: make(map[string]func(*state, command) error),
 	}
-	fmt.Printf("Read config again: %+v\n", data)
+	cmds.register("login", handlerLogin)
+
+	if len(os.Args) < 2 {
+		log.Fatal("Usage: cli <command> [args...]")
+		return
+	}
+
+	cmdName := os.Args[1]
+	cmdArgs := os.Args[2:]
+
+	err = cmds.run(programState, command{Name: cmdName, Args: cmdArgs})
+	if err != nil {
+		log.Fatal(err)
+	}
 }
